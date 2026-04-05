@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RBS - 要求分解図ツール</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts: Inter & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <header class="app-header">
+
+        <div class="ribbon">
+            <div class="ribbon-group">
+                <button id="undo-btn" class="ribbon-btn" title="元に戻す">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+                    <span>Undo</span>
+                </button>
+                <button id="redo-btn" class="ribbon-btn" title="やり直す">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>
+                    <span>Redo</span>
+                </button>
+                <div class="ribbon-label">編集</div>
+            </div>
+
+            <div class="ribbon-divider"></div>
+
+            <div class="ribbon-group">
+                <button id="font-increase-btn" class="ribbon-btn" title="文字を大きく">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+                    <span>拡大</span>
+                </button>
+                <button id="font-decrease-btn" class="ribbon-btn" title="文字を小さく">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6"/><path d="M7 11v6"/><path d="M14 14h6"/></svg>
+                    <span>縮小</span>
+                </button>
+                <button id="reset-view-btn" class="ribbon-btn" title="ビューをリセット">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><polyline points="8 11 11 8 14 11"/><polyline points="8 11 11 14 14 11"/></svg>
+                    <span>Reset View</span>
+                </button>
+                <div class="ribbon-label">表示</div>
+            </div>
+
+            <div class="ribbon-divider"></div>
+
+            <div class="ribbon-group">
+                <button id="import-json-btn" class="ribbon-btn" title="JSONインポート">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <span>Import</span>
+                </button>
+                <button id="export-json-btn" class="ribbon-btn" title="JSONエクスポート">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <span>JSON</span>
+                </button>
+                <button id="export-excel-btn" class="ribbon-btn" title="Excelエクスポート">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    <span>Excel</span>
+                </button>
+                <button id="export-btn" class="ribbon-btn" title="画像を書き出し">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    <span>Capture</span>
+                </button>
+                <div class="ribbon-label">データ</div>
+            </div>
+
+            <div class="ribbon-divider"></div>
+
+            <div class="ribbon-group">
+                <button id="clear-btn" class="ribbon-btn danger" title="プロジェクト初期化">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                    <span>初期化</span>
+                </button>
+                <div class="ribbon-label">プロジェクト</div>
+            </div>
+            
+            <input type="file" id="json-input" accept=".json" title="JSONインポート">
+        </div>
+    </header>
+
+    <nav class="app-tabs">
+        <button class="tab-btn active" data-tab="rbs-tab">要求分解図</button>
+        <button class="tab-btn" data-tab="pert-tab">依存解析図</button>
+        <button class="tab-btn" data-tab="kanban-tab">ステータス</button>
+        <button class="tab-btn" data-tab="table-tab">一覧表</button>
+    </nav>
+
+    <main id="app-container">
+        <div id="rbs-tab" class="tab-content active">
+            <div id="tree-container">
+                <!-- Tree nodes will be rendered here -->
+            </div>
+        </div>
+        <div id="pert-tab" class="tab-content">
+            <div id="pert-app-container">
+                <div id="pert-tree-container">
+                    <svg id="pert-svg-overlay"></svg>
+                    <!-- Leaf nodes will be rendered directly as absolute children of pert-tree-container -->
+                </div>
+            </div>
+        </div>
+        <div id="kanban-tab" class="tab-content">
+            <div class="kanban-board">
+                <div class="kanban-column" data-status="未着手">
+                    <h3>未着手 <span class="count">0</span></h3>
+                    <div class="kanban-items"></div>
+                </div>
+                <div class="kanban-column" data-status="実行中">
+                    <h3>実行中 <span class="count">0</span></h3>
+                    <div class="kanban-items"></div>
+                </div>
+                <div class="kanban-column" data-status="保留">
+                    <h3>保留 <span class="count">0</span></h3>
+                    <div class="kanban-items"></div>
+                </div>
+                <div class="kanban-column" data-status="完了">
+                    <h3>完了 <span class="count">0</span></h3>
+                    <div class="kanban-items"></div>
+                </div>
+            </div>
+        </div>
+        <div id="table-tab" class="tab-content">
+            <div class="table-view">
+                <table id="requirements-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 34px;"></th>
+                            <th style="width: 80px;">ID</th>
+                            <th>要求項目名称</th>
+                            <th style="width: 140px;">ステータス</th>
+                            <th>詳細説明</th>
+                            <th>チェックリスト</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <!-- Table rows will be rendered here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <footer class="app-footer">
+        <div id="shortcuts-hint" class="shortcuts-hint">
+            <span><strong>Enter</strong>: 兄弟ノード</span>
+            <span><strong>Tab</strong>: 子ノード</span>
+            <span><strong>Arrows</strong>: 移動</span>
+            <span><strong>Backspace</strong>: 空ノード削除</span>
+            <span><strong>Space</strong>: 全体を表示</span>
+            <span class="hotkey-detail">Double Click: 詳細を開く</span>
+        </div>
+    </footer>
+
+    <!-- Side Details Pane -->
+    <aside id="details-pane" class="details-pane">
+        <div class="pane-header">
+            <h3>要求詳細設定</h3>
+            <button id="close-pane-btn" class="close-btn">&times;</button>
+        </div>
+        <div class="pane-body">
+            <div class="form-group">
+                <label>管理ID (Serial ID)</label>
+                <input type="text" id="detail-id-readonly" class="detail-id-badge" readonly title="この項目の管理用IDです">
+            </div>
+            <div class="form-group">
+                <label for="detail-text-input">名称 (Title)</label>
+                <input type="text" id="detail-text-input" title="名称を入力してください" placeholder="例: 要件A">
+            </div>
+            <div class="form-group">
+                <label for="detail-desc-input">詳細説明 (Description)</label>
+                <textarea id="detail-desc-input" title="詳細な説明を入力してください" placeholder="この要求に関する詳細やメモを入力..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="detail-status-input">ステータス (Status)</label>
+                <select id="detail-status-input" title="ステータスを選択してください">
+                    <option value="未着手">未着手</option>
+                    <option value="実行中">実行中</option>
+                    <option value="保留">保留</option>
+                    <option value="完了">完了</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="detail-optimistic-input">楽観時間 (日)</label>
+                    <input type="number" id="detail-optimistic-input" min="0" title="最短で見積もる日数" placeholder="0">
+                </div>
+                <div class="form-group">
+                    <label for="detail-likely-input">堅実時間 (日)</label>
+                    <input type="number" id="detail-likely-input" min="0" title="妥当な見積もり日数" placeholder="0">
+                </div>
+                <div class="form-group">
+                    <label for="detail-pessimistic-input">悲観時間 (日)</label>
+                    <input type="number" id="detail-pessimistic-input" min="0" title="最悪を想定した日数" placeholder="0">
+                </div>
+            </div>
+            <div class="checklist-section">
+                <div class="section-header">
+                    <label>チェックリスト (Checklist)</label>
+                    <button id="add-checklist-item-btn" class="icon-btn-small" title="項目を追加">+</button>
+                </div>
+                <div id="checklist-container"></div>
+            </div>
+            <div class="pane-actions">
+                <button id="save-detail-btn" class="primary-btn">変更を更新</button>
+            </div>
+        </div>
+    </aside>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
