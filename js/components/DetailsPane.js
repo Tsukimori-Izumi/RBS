@@ -1,123 +1,111 @@
-export class DetailsPane {
-    constructor(store, onRequestCenter) {
-        this.store = store;
-        this.onRequestCenter = onRequestCenter;
-        this.editingNodeId = null;
-        this.currentChecklist = [];
-        
-        this.initDOM();
-        this.bindEvents();
-    }
-    
-    initDOM() {
-        this.pane = document.getElementById('details-pane');
-        this.closeBtn = document.getElementById('close-pane-btn');
-        this.saveBtn = document.getElementById('save-detail-btn');
-        this.textInput = document.getElementById('detail-text-input');
-        this.descInput = document.getElementById('detail-desc-input');
-        this.statusInput = document.getElementById('detail-status-input');
-        this.optInput = document.getElementById('detail-optimistic-input');
-        this.likInput = document.getElementById('detail-likely-input');
-        this.pesInput = document.getElementById('detail-pessimistic-input');
-        this.checkContainer = document.getElementById('checklist-container');
-        this.addCheckBtn = document.getElementById('add-checklist-item-btn');
-        this.idBadge = document.getElementById('detail-id-readonly');
-    }
-    
-    bindEvents() {
-        this.closeBtn.onclick = () => this.close();
-        this.saveBtn.onclick = () => this.saveNodeDetails();
-        this.addCheckBtn.onclick = () => this.addChecklistItem();
-        
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && this.pane.classList.contains('open')) {
-                this.close();
-            }
-        });
-    }
-    
-    open(nodeId) {
-        const node = this.store.findNodeById(this.store.data, nodeId);
-        if (!node) return;
-        
-        this.editingNodeId = nodeId;
-        this.idBadge.value = node.serialId || '';
-        this.textInput.value = node.text || '';
-        this.descInput.value = node.description || '';
-        this.statusInput.value = node.status || '未着手';
-        this.optInput.value = node.optimistic || 0;
-        this.likInput.value = node.likely || 0;
-        this.pesInput.value = node.pessimistic || 0;
-        
-        this.currentChecklist = JSON.parse(JSON.stringify(node.checklist || []));
-        this.renderChecklist();
-        
-        document.body.classList.add('details-open');
-        this.pane.classList.add('open');
-        
-        setTimeout(() => this.onRequestCenter && this.onRequestCenter(), 410);
-    }
-    
-    close() {
-        document.body.classList.remove('details-open');
-        this.pane.classList.remove('open');
-        this.editingNodeId = null;
-        
-        setTimeout(() => this.onRequestCenter && this.onRequestCenter(), 410);
-    }
-    
-    renderChecklist() {
-        this.checkContainer.innerHTML = '';
-        this.currentChecklist.forEach((item, index) => {
-            const row = document.createElement('div');
-            row.className = 'checklist-item';
-            
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.checked = item.done;
-            checkbox.onchange = (e) => { item.done = e.target.checked; };
+import { h } from 'https://esm.sh/preact@10.19.2';
+import { useState, useEffect } from 'https://esm.sh/preact@10.19.2/hooks';
+import { html } from 'https://esm.sh/htm@3.1.1/preact';
 
-            const textInput = document.createElement('input');
-            textInput.type = 'text';
-            textInput.value = item.text || '';
-            textInput.placeholder = '\u5185\u5bb9\u3092\u5165\u529b...';
-            textInput.oninput = (e) => { item.text = e.target.value; };
+export function DetailsPane({ store, nodeId, onClose, onRequestCenter }) {
+    if (!nodeId) return html`<div class="details-pane"></div>`;
 
-            const removeBtn = document.createElement('button');
-            removeBtn.className = 'remove-item-btn';
-            removeBtn.innerHTML = '&times;';
-            removeBtn.onclick = () => {
-                this.currentChecklist.splice(index, 1);
-                this.renderChecklist();
-            };
+    const [node, setNode] = useState(null);
 
-            row.appendChild(checkbox);
-            row.appendChild(textInput);
-            row.appendChild(removeBtn);
-            this.checkContainer.appendChild(row);
-        });
-    }
+    useEffect(() => {
+        const n = store.findNodeById(store.data, nodeId);
+        setNode(n ? { ...n } : null);
+    }, [nodeId]);
 
-    addChecklistItem() {
-        if (!this.currentChecklist) this.currentChecklist = [];
-        this.currentChecklist.push({ text: '', done: false });
-        this.renderChecklist();
-    }
+    if (!node) return html`<div class="details-pane open">
+        <div class="pane-header">
+            <h3>No Node Found</h3>
+                            <button class="close-btn" onClick=${onClose}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:20px;height:20px;display:block;"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+        </div>
+    </div>`;
 
-    saveNodeDetails() {
-        if (!this.editingNodeId) return;
-        const node = this.store.findNodeById(this.store.data, this.editingNodeId);
-        if (node) {
-            node.text = this.textInput.value;
-            node.description = this.descInput.value;
-            node.status = this.statusInput.value;
-            node.optimistic = parseInt(this.optInput.value) || 0;
-            node.likely = parseInt(this.likInput.value) || 0;
-            node.pessimistic = parseInt(this.pesInput.value) || 0;
-            node.checklist = JSON.parse(JSON.stringify(this.currentChecklist));
-            
-            this.store.pushHistory(); // Triggers re-render across all views
-            this.close();
+    const handleChange = (f, v) => {
+        const newNode = { ...node, [f]: v };
+        setNode(newNode);
+        const originalNode = store.findNodeById(store.data, nodeId);
+        if (originalNode) {
+            originalNode[f] = v;
+            store.saveData();
         }
-    }
+    };
+
+    const handleAddChild = () => {
+        store.addNode(nodeId);
+        store.pushHistory();
+        onClose();
+    };
+
+    const handleDelete = () => {
+        if (confirm('このノードを削除しますか？')) {
+            store.deleteNode(nodeId);
+            store.pushHistory();
+            onClose();
+        }
+    };
+
+    const handleToggleCheck = (index) => {
+        const newList = [...(node.checklist || [])];
+        newList[index].done = !newList[index].done;
+        handleChange('checklist', newList);
+    };
+
+    return html`
+        <div class="details-pane ${nodeId ? 'open' : ''}">
+            <div class="pane-header">
+                <h3>詳細編集</h3>
+                <button class="close-btn" onClick=${onClose}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+            </div>
+            
+            <div class="pane-body">
+                <div class="form-group">
+                    <label>ID</label>
+                    <span class="detail-id-badge">${node.serialId}</span>
+                </div>
+
+                <div class="form-group">
+                    <label>要求の名称</label>
+                    <input value="${node.text || ''}" onInput=${e => handleChange('text', e.target.value)} />
+                </div>
+
+                <div class="form-group">
+                    <label>詳細説明</label>
+                    <textarea value="${node.description || ''}" onInput=${e => handleChange('description', e.target.value)}></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>ステータス</label>
+                    <select value="${node.status || '未着手'}" onChange=${e => handleChange('status', e.target.value)}>
+                        <option value="未着手">未着手</option>
+                        <option value="実行中">実行中</option>
+                        <option value="保留">保留</option>
+                        <option value="完了">完了</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>オプティミスティック</label>
+                        <input type="number" value="${node.optimistic || 0}" onInput=${e => handleChange('optimistic', e.target.value)} />
+                    </div>
+                    <div class="form-group">
+                        <label>モストライクリー</label>
+                        <input type="number" value="${node.mostLikely || 0}" onInput=${e => handleChange('mostLikely', e.target.value)} />
+                    </div>
+                    <div class="form-group">
+                        <label>ペシミスティック</label>
+                        <input type="number" value="${node.pessimistic || 0}" onInput=${e => handleChange('pessimistic', e.target.value)} />
+                    </div>
+                </div>
+
+                <div class="pane-actions">
+                    <button class="primary-btn" onClick=${handleAddChild}>子ノードを追加</button>
+                    <button class="primary-btn danger" style="margin-top:10px" onClick=${handleDelete}>ノードを削除</button>
+                </div>
+            </div>
+        </div>
+    `;
 }

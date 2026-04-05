@@ -1,170 +1,116 @@
-export class Toolbar {
-    constructor(store, appInterface) {
-        this.store = store;
-        this.appInterface = appInterface; 
-        
-        this.clearBtn = document.getElementById('clear-btn');
-        this.exportBtn = document.getElementById('export-btn');
-        this.resetViewBtn = document.getElementById('reset-view-btn');
-        this.undoBtn = document.getElementById('undo-btn');
-        this.redoBtn = document.getElementById('redo-btn');
-        this.exportJsonBtn = document.getElementById('export-json-btn');
-        this.exportExcelBtn = document.getElementById('export-excel-btn');
-        this.importJsonBtn = document.getElementById('import-json-btn');
-        this.jsonInput = document.getElementById('json-input');
-        
-        this.fontSize = 14;
-        this.fontIncreaseBtn = document.getElementById('font-increase-btn');
-        this.fontDecreaseBtn = document.getElementById('font-decrease-btn');
-        
-        this.store.subscribe(() => this.updateUndoRedoBtns());
-        this.bindEvents();
-    }
-    
-    bindEvents() {
-        this.clearBtn.onclick = () => { 
-            if (confirm("\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u3092\u521d\u671f\u5316\u3057\u307e\u3059\u304b\uff1f\u73fe\u5728\u306e\u30c4\u30ea\u30fc\u306f\u3059\u3079\u3066\u6d88\u53bb\u3055\u308c\u307e\u3059\u3002")) { 
-                localStorage.removeItem('rbs-data'); 
-                this.store.data = this.store.getDefaultData();
-                this.store.syncSerials();
-                this.store.history = [];
-                this.store.historyIndex = -1;
-                this.store.pushHistory();
-                this.appInterface.resetView();
-            } 
-        };
-        
-        this.exportBtn.onclick = async () => this.handleImageExport();
-        this.exportExcelBtn.onclick = () => this.handleExcelExport();
-        this.resetViewBtn.onclick = () => this.appInterface.resetView();
-        
-        if (this.fontIncreaseBtn) {
-            this.fontIncreaseBtn.onclick = () => {
-                this.fontSize = Math.min(24, this.fontSize + 2);
-                document.documentElement.style.setProperty('--app-font-size', `${this.fontSize}px`);
-                if (this.appInterface && this.appInterface.fitView) this.appInterface.fitView();
-            };
-        }
-        if (this.fontDecreaseBtn) {
-            this.fontDecreaseBtn.onclick = () => {
-                this.fontSize = Math.max(10, this.fontSize - 2);
-                document.documentElement.style.setProperty('--app-font-size', `${this.fontSize}px`);
-                if (this.appInterface && this.appInterface.fitView) this.appInterface.fitView();
-            };
-        }
-        
-        this.undoBtn.onclick = () => this.store.undo();
-        this.redoBtn.onclick = () => this.store.redo();
-        
-        this.exportJsonBtn.onclick = () => {
-            const blob = new Blob([JSON.stringify(this.store.data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `rbs-data-${new Date().toISOString().slice(0,10)}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-        };
+import { h } from 'https://esm.sh/preact@10.19.2';
+import { html } from 'https://esm.sh/htm@3.1.1/preact';
 
-        this.importJsonBtn.onclick = () => this.jsonInput.click();
-        this.jsonInput.onchange = (e) => {
+export function Toolbar({ store, onResetView, onFitView }) {
+    const handleAddRoot = () => {
+        store.addNode(null);
+        store.pushHistory();
+    };
+
+    const handleClearAll = () => {
+        if (confirm('すべてのノードを削除して初期化しますか？')) {
+            store.data = store.getDefaultData();
+            store.pushHistory();
+        }
+    };
+
+    const handleExportJSON = async () => {
+        const jsonString = JSON.stringify(store.data, null, 2);
+        
+        // Use modern File System Access API if available
+        if ('showSaveFilePicker' in window) {
+            try {
+                const handle = await window.showSaveFilePicker({
+                    suggestedName: 'rbs_data.json',
+                    types: [{
+                        description: 'JSON Files',
+                        accept: { 'application/json': ['.json'] },
+                    }],
+                });
+                const writable = await handle.createWritable();
+                await writable.write(jsonString);
+                await writable.close();
+                return;
+            } catch (err) {
+                if (err.name === 'AbortError') return;
+                console.error('File Picker Error:', err);
+            }
+        }
+
+        // Fallback for older browsers
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonString);
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href",     dataStr);
+        downloadAnchorNode.setAttribute("download", "rbs_data.json");
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+    };
+
+    const handleImportJSON = () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.onchange = e => {
             const file = e.target.files[0];
-            if (!file) return;
             const reader = new FileReader();
-            reader.onload = (re) => {
+            reader.onload = event => {
                 try {
-                    const imported = JSON.parse(re.target.result);
-                    if (Array.isArray(imported)) {
-                        this.store.data = imported;
-                        this.store.pushHistory();
-                        this.appInterface.resetView();
-                        alert("\u30a4\u30f3\u30dd\u30fc\u30c8\u304c\u5b8c\u4e86\u3057\u307e\u3057\u305f\u3002");
-                    }
-                } catch (err) {
-                    alert("\u30d5\u30a1\u30a4\u30eb\u306e\u8aad\u307f\u8fbc\u307f\u306b\u5931\u6557\u3057\u307e\u3057\u305f\u3002");
-                }
+                    store.data = JSON.parse(event.target.result);
+                    store.pushHistory();
+                } catch(err) { alert('JSONの読み込みに失敗しました'); }
             };
             reader.readAsText(file);
-            e.target.value = null; // reset
         };
-    }
+        input.click();
+    };
 
-    updateUndoRedoBtns() {
-        if (this.undoBtn) this.undoBtn.disabled = this.store.historyIndex <= 0;
-        if (this.redoBtn) this.redoBtn.disabled = this.store.historyIndex >= this.store.history.length - 1;
-    }
+    return html`
+        <header class="app-header">
+            <div class="ribbon">
+                <div class="ribbon-group">
+                    <button class="ribbon-btn" onClick=${handleAddRoot} title="新しいルート要求を追加">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                        <span>追加</span>
+                    </button>
+                    <div class="ribbon-label">編集</div>
+                </div>
 
-    handleExcelExport() {
-        if (typeof XLSX === 'undefined') {
-            alert("Excel書き出しライブラリが読み込まれていません。");
-            return;
-        }
+                <div class="ribbon-divider"></div>
 
-        const flattened = [];
-        const scan = (nodes, level = 0) => {
-            nodes.forEach(node => {
-                const checklistStr = (node.checklist || [])
-                    .map(item => `${item.done ? '[x]' : '[ ]'} ${item.text}`)
-                    .join('\n');
+                <div class="ribbon-group">
+                    <button class="ribbon-btn" onClick=${onFitView} title="全体を表示">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M11 8v6M8 11h6"/></svg>
+                        <span>全体</span>
+                    </button>
+                    <button class="ribbon-btn" onClick=${onFitView} title="図面を自動的に整列">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 15 6 6m-6-6 6-6m-6 6-6 6m6-6-6-6M9 3v1h1V3H9Zm6 3V5h-1v1h1ZM5 8V7h1v1H5Zm14 0V7h-1v1h1Z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <span>自動整形</span>
+                    </button>
+                    <button class="ribbon-btn" onClick=${onResetView} title="等倍に戻す">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        <span>リセット</span>
+                    </button>
+                    <div class="ribbon-label">表示</div>
+                </div>
 
-                flattened.push({
-                    '階層': level + 1,
-                    'ID': node.serialId || '',
-                    '名称': node.text || '',
-                    'ステータス': node.status || '未着手',
-                    '詳細説明': node.description || '',
-                    'チェックリスト': checklistStr,
-                    '楽観時間': node.optimistic || 0,
-                    '堅実時間': node.likely || 0,
-                    '悲観時間': node.pessimistic || 0
-                });
-                if (node.children && node.children.length > 0) {
-                    scan(node.children, level + 1);
-                }
-            });
-        };
-        scan(this.store.data);
+                <div class="ribbon-divider"></div>
 
-        const ws = XLSX.utils.json_to_sheet(flattened);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Requirements");
-
-        XLSX.writeFile(wb, `rbs-export-${new Date().toISOString().slice(0,10)}.xlsx`);
-    }
-
-    async handleImageExport() {
-        if (typeof html2canvas === 'undefined') {
-            alert("\u753b\u50cf\u51fa\u529b\u30e9\u30a4\u30d6\u30e9\u30ea\u304c\u8aad\u307f\u8fbc\u3081\u3066\u3044\u307e\u305b\u3093\u3002");
-            return;
-        }
-
-        const btnOriginalHTML = this.exportBtn.innerHTML;
-        this.exportBtn.innerHTML = '<span>Compressing...</span>';
-        this.exportBtn.disabled = true;
-
-        const treeContainer = document.getElementById('tree-container');
-        const originalTransform = treeContainer.style.transform;
-        treeContainer.style.transform = 'none';
-
-        try {
-            const canvas = await html2canvas(treeContainer, {
-                backgroundColor: '#f1f5f9',
-                scale: 2,
-                useCORS: true,
-                logging: false
-            });
-
-            const link = document.createElement('a');
-            link.download = `rbs-capture-${new Date().toISOString().slice(0,10)}.png`;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-        } catch (err) {
-            console.error('Image export failed', err);
-            alert("\u753b\u50cf\u306e書き出しに失敗しました。");
-        } finally {
-            treeContainer.style.transform = originalTransform;
-            this.exportBtn.innerHTML = btnOriginalHTML;
-            this.exportBtn.disabled = false;
-        }
-    }
+                <div class="ribbon-group">
+                    <button class="ribbon-btn" onClick=${handleImportJSON} title="JSONファイルから読み込み">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        <span>開く</span>
+                    </button>
+                    <button class="ribbon-btn" onClick=${handleExportJSON} title="JSON形式で保存">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        <span>保存</span>
+                    </button>
+                    <button class="ribbon-btn danger" onClick=${handleClearAll} title="データを全消去">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        <span>全消去</span>
+                    </button>
+                    <div class="ribbon-label">データ</div>
+                </div>
+            </div>
+        </header>
+    `;
 }
