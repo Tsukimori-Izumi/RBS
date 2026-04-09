@@ -12,8 +12,9 @@ export function NodeCard({ node, pos, onOpenDetails, store: propStore, viewMode 
         --pos-x: ${pos.x}px;
         --pos-y: ${pos.y}px;
         transform: translate(${pos.x}px, ${pos.y}px);
-        width: 280px;
-        height: 100px;
+        width: 340px;
+        min-height: 200px;
+        height: max-content;
         display: ${pos.visible ? 'flex' : 'none'};
     `;
 
@@ -29,14 +30,28 @@ export function NodeCard({ node, pos, onOpenDetails, store: propStore, viewMode 
 
     const handleKeyDown = (e) => {
         if (e.isComposing || e.keyCode === 229) return;
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && e.shiftKey) {
+            e.preventDefault();
+            node.items = node.items || [];
+            node.items.push('');
+            store.saveData();
+            store.notify();
+            const newIdx = node.items.length - 1;
+            setTimeout(() => {
+                const el = document.getElementById(`input-${node.id}-item-${newIdx}`);
+                if (el) el.focus();
+            }, 50);
+        } else if (e.key === 'Enter') {
             e.preventDefault();
             const newNode = store.addNode(null, node.id, 'sibling');
             if (newNode) focusNode(newNode.id);
         } else if (e.key === 'Tab') {
             e.preventDefault();
             const newNode = store.addNode(node.id);
-            if (newNode) focusNode(newNode.id);
+            if (newNode) {
+                store.addPredecessor(newNode.id, node.id); // card-level (no #idx)
+                focusNode(newNode.id);
+            }
         } else if ((e.key === 'Backspace' || e.key === 'Delete') && e.target.value.trim() === '') {
             e.preventDefault();
             if (confirm('このノードを削除しますか？')) {
@@ -45,12 +60,54 @@ export function NodeCard({ node, pos, onOpenDetails, store: propStore, viewMode 
             }
         } else if (e.key === 'ArrowUp') {
             e.preventDefault();
-            const prev = store.getAdjacentNode(node.id, 'prev');
-            if (prev) focusNode(prev.id);
+            const currentEl = document.getElementById(`input-${node.id}`);
+            if (currentEl) {
+                const rect = currentEl.getBoundingClientRect();
+                const allInputs = Array.from(document.querySelectorAll('.card-title-input'));
+                let closest = null, minDist = Infinity;
+                allInputs.forEach(inp => {
+                    const r = inp.getBoundingClientRect();
+                    if (r.top < rect.top - 5) {
+                        const dist = Math.pow(r.top - rect.top, 2) + Math.pow(r.left - rect.left, 2);
+                        if (dist < minDist) { minDist = dist; closest = inp; }
+                    }
+                });
+                if (closest) closest.focus();
+            }
         } else if (e.key === 'ArrowDown') {
             e.preventDefault();
-            const next = store.getAdjacentNode(node.id, 'next');
-            if (next) focusNode(next.id);
+            if (node.items && node.items.length > 0) {
+                setTimeout(() => {
+                    const el = document.getElementById(`input-${node.id}-item-0`);
+                    if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+                }, 50);
+            } else {
+                const currentEl = document.getElementById(`input-${node.id}`);
+                if (currentEl) {
+                    const rect = currentEl.getBoundingClientRect();
+                    const allInputs = Array.from(document.querySelectorAll('.card-title-input'));
+                    let closest = null, minDist = Infinity;
+                    allInputs.forEach(inp => {
+                        const r = inp.getBoundingClientRect();
+                        if (r.top > rect.top + 5) {
+                            const dist = Math.pow(r.top - rect.top, 2) + Math.pow(r.left - rect.left, 2);
+                            if (dist < minDist) { minDist = dist; closest = inp; }
+                        }
+                    });
+                    if (closest) closest.focus();
+                }
+            }
+        } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            const ancestors = store.getAncestors(node.id);
+            if (ancestors && ancestors.length > 0) {
+                focusNode(ancestors[ancestors.length - 1].id);
+            }
+        } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            if (node.children && node.children.length > 0) {
+                focusNode(node.children[0].id);
+            }
         }
     };
 
@@ -121,9 +178,9 @@ export function NodeCard({ node, pos, onOpenDetails, store: propStore, viewMode 
     const handleDrop = (e) => {
         if (viewMode === 'pert-tab') {
             e.preventDefault();
-            const sourceId = e.dataTransfer.getData('source-id');
-            if (sourceId && sourceId !== node.id) {
-                store.addPredecessor(sourceId, node.id);
+            const sourceInfo = e.dataTransfer.getData('source-id');
+            if (sourceInfo && sourceInfo.split('#')[0] !== node.id) {
+                store.addPredecessor(node.id, sourceInfo);
                 store.pushHistory();
             }
         }
@@ -136,6 +193,102 @@ export function NodeCard({ node, pos, onOpenDetails, store: propStore, viewMode 
         setTimeout(() => setIsEntering(false), 800);
     }, []);
 
+    const handleDateInput = (e) => {
+        node.date = e.target.value;
+        store.saveData();
+    };
+
+    const handleItemInput = (idx, e) => {
+        node.items[idx] = e.target.value;
+        store.saveData();
+    };
+
+    const addItem = (e) => {
+        e.stopPropagation();
+        node.items = node.items || [];
+        node.items.push('');
+        store.saveData();
+        store.notify();
+    };
+
+    const handleItemKeyDown = (idx, e) => {
+        e.stopPropagation();
+        if (e.isComposing || e.keyCode === 229) return;
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            node.items.splice(idx + 1, 0, '');
+            store.saveData();
+            store.notify();
+            setTimeout(() => {
+                const el = document.getElementById(`input-${node.id}-item-${idx + 1}`);
+                if (el) { el.focus(); }
+            }, 50);
+        } else if ((e.key === 'Backspace' || e.key === 'Delete') && e.target.value === '') {
+            e.preventDefault();
+            node.items.splice(idx, 1);
+            store.saveData();
+            store.notify();
+            setTimeout(() => {
+                if (idx > 0) {
+                    const el = document.getElementById(`input-${node.id}-item-${idx - 1}`);
+                    if (el) { el.focus(); }
+                } else {
+                    focusNode(node.id);
+                }
+            }, 50);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (idx > 0) {
+                const el = document.getElementById(`input-${node.id}-item-${idx - 1}`);
+                if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+            } else {
+                focusNode(node.id);
+                const currentEl = document.getElementById(`input-${node.id}-item-${idx}`);
+                if (currentEl) {
+                    const rect = currentEl.getBoundingClientRect();
+                    const allInputs = Array.from(document.querySelectorAll('.card-title-input'));
+                    let closest = null, minDist = Infinity;
+                    allInputs.forEach(inp => {
+                        const r = inp.getBoundingClientRect();
+                        if (r.top < rect.top - 5) {
+                            const dist = Math.pow(r.top - rect.top, 2) + Math.pow(r.left - rect.left, 2);
+                            if (dist < minDist) { minDist = dist; closest = inp; }
+                        }
+                    });
+                    if (closest) closest.focus();
+                }
+            }
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (idx < node.items.length - 1) {
+                const el = document.getElementById(`input-${node.id}-item-${idx + 1}`);
+                if (el) el.focus();
+            } else {
+                const currentEl = document.getElementById(`input-${node.id}-item-${idx}`);
+                if (currentEl) {
+                    const rect = currentEl.getBoundingClientRect();
+                    const allInputs = Array.from(document.querySelectorAll('.card-title-input'));
+                    let closest = null, minDist = Infinity;
+                    allInputs.forEach(inp => {
+                        const r = inp.getBoundingClientRect();
+                        if (r.top > rect.top + 5) {
+                            const dist = Math.pow(r.top - rect.top, 2) + Math.pow(r.left - rect.left, 2);
+                            if (dist < minDist) { minDist = dist; closest = inp; }
+                        }
+                    });
+                    if (closest) closest.focus();
+                }
+            }
+        } else if (e.key === 'Tab') {
+            e.preventDefault();
+            const newNode = store.addNode(node.id);
+            if (newNode) {
+                store.addPredecessor(newNode.id, `${node.id}#${idx}`);
+                focusNode(newNode.id);
+            }
+        }
+    };
+
     return html`
         <div class="node-card ${node.isGhost ? 'ghost' : ''} ${isLoading ? 'loading' : ''} ${isEntering ? 'entering' : ''}" 
              style="${style}"
@@ -146,38 +299,59 @@ export function NodeCard({ node, pos, onOpenDetails, store: propStore, viewMode 
              onDrop=${handleDrop}
              onDblClick=${() => onOpenDetails(node.id)}>
              
-            <div class="card-id-badge" data-status="${node.status || '未着手'}">${node.serialId || ''}</div>
+            <div class=\"card-id-badge\" data-status=\"${node.status || '未着手'}\">${store.getHierarchicalId(node.id) || node.serialId || ''}</div>
+            <button class=\"card-delete-btn\" title=\"削除\" onClick=${(e) => {
+                e.stopPropagation();
+                if (confirm('このノードを削除しますか？')) {
+                    store.deleteNode(node.id);
+                    store.pushHistory();
+                }
+            }}>×</button>
             
             <div class="card-content">
-                <textarea class="card-title-input" 
-                       id="input-${node.id}"
-                       onInput=${handleInput}
-                       onBlur=${handleBlur}
-                       onKeyDown=${handleKeyDown}
-                       placeholder="要求の名称...">${node.text || ''}</textarea>
+                <div class="card-top-row">
+                    <textarea class="card-title-input" 
+                           id="input-${node.id}"
+                           onInput=${handleInput}
+                           onBlur=${handleBlur}
+                           onKeyDown=${handleKeyDown}
+                           placeholder="タイトル...">${node.text || ''}</textarea>
+                    <input type="date" class="card-date-input" value="${node.date || ''}" onInput=${handleDateInput} onBlur=${handleBlur} />
+                </div>
                 
-                <div class="card-status-label" data-status="${node.status || '未着手'}">
-                    ${node.status || '未着手'}
+                <div class="card-middle-row">
+                    <div class="card-items-list">
+                        ${(node.items || []).map((item, idx) => html`
+                            <div class="list-item-row">
+                                <span class="list-bullet"
+                                    title="ドラッグで結線を引く"
+                                    draggable="true" 
+                                    onDragStart=${(e) => {
+                                        e.stopPropagation();
+                                        e.dataTransfer.setData('source-id', `${node.id}#${idx}`);
+                                        e.dataTransfer.effectAllowed = 'copyLink';
+                                    }}
+                                    style="cursor: grab;"
+                                >•</span>
+                                <input type="text" class="list-item-input" value="${item}" 
+                                    id="input-${node.id}-item-${idx}"
+                                    onInput=${e => handleItemInput(idx, e)} 
+                                    onKeyDown=${e => handleItemKeyDown(idx, e)}
+                                    onBlur=${handleBlur}
+                                    placeholder="項目..."/>
+                            </div>
+                        `)}
+                    </div>
+                    <button class="add-list-item-btn" onClick=${addItem}>+ アイテム追加</button>
+                </div>
+
+                <div class="card-bottom-row">
+                    <div class="card-status-label" data-status="${node.status || '未着手'}">
+                        ${node.status || '未着手'}
+                    </div>
                 </div>
             </div>
 
-            <div class="card-actions">
-                <button class="card-mini-btn ai-btn" title="AI分解プロンプト" onClick=${handleAIDecomposition}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                </button>
-                <button class="card-mini-btn paste-btn" title="回答を貼り付け" onClick=${handleAIPaste}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
-                </button>
-                ${node.isGhost ? html`
-                    <button class="card-mini-btn confirm-btn" title="確定" onClick=${handleConfirmGhost}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                    </button>
-                ` : html`
-                    <button class="card-mini-btn" title="詳細" onClick=${() => onOpenDetails(node.id)}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6"/><path d="M10 14L21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
-                    </button>
-                `}
-            </div>
         </div>
     `;
 }

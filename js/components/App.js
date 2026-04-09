@@ -126,7 +126,7 @@ export function App({ store }) {
                         <div class="kanban-background-layer">
                             ${['未着手', '実行中', '保留', '完了'].map((status, i) => html`
                                 <div class="kanban-bg-column" 
-                                     style="left: ${50 + i * 320}px"
+                                     style="left: ${50 + i * 400}px"
                                      onDragOver=${(e) => { e.preventDefault(); }}
                                      onDragEnter=${(e) => e.currentTarget.classList.add('drag-over')}
                                      onDragLeave=${(e) => e.currentTarget.classList.remove('drag-over')}

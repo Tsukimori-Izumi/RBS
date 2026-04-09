@@ -1,0 +1,89 @@
+[
+  {
+    "id": "node-scdl-root",
+    "serialId": "SCDL-001",
+    "text": "ASAM SCDL 表記仕様 (Notation Specification)",
+    "status": "完了",
+    "children": [
+      {
+        "id": "node-scdl-1",
+        "serialId": "SCDL-002",
+        "text": "5.2 記号の定義",
+        "children": [
+          {
+            "id": "node-scdl-1-1",
+            "serialId": "SCDL-003",
+            "text": "5.2.1 要求表記 (Requirement)",
+            "children": [
+              { "id": "node-scdl-1-1-1", "serialId": "SCDL-004", "text": "長方形で表記、実線を使用" },
+              { "id": "node-scdl-1-1-2", "serialId": "SCDL-005", "text": "右上に重み付け（ASILなど）を表示する小長方形を配置" },
+              { "id": "node-scdl-1-1-3", "serialId": "SCDL-006", "text": "配置先未決定の場合は底辺を二重線にする" }
+            ]
+          },
+          {
+            "id": "node-scdl-1-2",
+            "serialId": "SCDL-007",
+            "text": "5.2.2 インタラクション表記 (Interaction)",
+            "children": [
+              { "id": "node-scdl-1-2-1", "serialId": "SCDL-008", "text": "矢印(→)で表記、情報の授受を表現" },
+              { "id": "node-scdl-1-2-2", "serialId": "SCDL-009", "text": "一つの出力から複数の要求へ分岐可能" }
+            ]
+          },
+          {
+            "id": "node-scdl-1-3",
+            "serialId": "SCDL-010",
+            "text": "5.2.3 システムバウンダリインタラクション",
+            "children": [
+              { "id": "node-scdl-1-3-1", "serialId": "SCDL-011", "text": "ブロック矢印で表記、システム境界外との境界を表現" },
+              { "id": "node-scdl-1-3-2", "serialId": "SCDL-012", "text": "外部プラント (5点の星形) による外部環境との相互作用" }
+            ]
+          },
+          {
+            "id": "node-scdl-1-4",
+            "serialId": "SCDL-013",
+            "text": "5.2.5 エレメント表記 (Element)",
+            "children": [
+              { "id": "node-scdl-1-4-1", "serialId": "SCDL-014", "text": "破線長方形で表記、システム構成要素（HW/SW）を表現" },
+              { "id": "node-scdl-1-4-2", "serialId": "SCDL-015", "text": "入れ子構造により下位サブセット要素を配置可能" }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "node-scdl-2",
+        "serialId": "SCDL-016",
+        "text": "5.3 表記を組み合わせた時の意味",
+        "children": [
+          {
+            "id": "node-scdl-2-1",
+            "serialId": "SCDL-017",
+            "text": "5.3.2 要求グループの括り方 (Requirement Group)",
+            "children": [
+              { "id": "node-scdl-2-1-1", "serialId": "SCDL-018", "text": "Enclosure type: 複数の要求を枠線で囲む" },
+              { "id": "node-scdl-2-1-2", "serialId": "SCDL-019", "text": "Balloon type: 楕円で要求グループを表記" },
+              { "id": "node-scdl-2-1-3", "serialId": "SCDL-020", "text": "Tab type: 要求の長方形上辺にタブを表示" }
+            ]
+          },
+          {
+            "id": "node-scdl-2-2",
+            "serialId": "SCDL-021",
+            "text": "5.3.5 無干渉表記 (Independence/Coexistence)",
+            "children": [
+              { "id": "node-scdl-2-2-1", "serialId": "SCDL-022", "text": "2本の平行な斜線でインタラクションを横断し、干渉なしを表現" }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "node-scdl-3",
+        "serialId": "SCDL-023",
+        "text": "A. SCDL メタモデル",
+        "children": [
+          { "id": "node-scdl-3-1", "serialId": "SCDL-024", "text": "AbstractRequirement: RequirementとConstraintの共通抽象概念" },
+          { "id": "node-scdl-3-2", "serialId": "SCDL-025", "text": "Interaction: sourceとtarget間の関連" },
+          { "id": "node-scdl-3-3", "serialId": "SCDL-026", "text": "Weight: 要素の重み付け（ASILレベルなど）を保持" }
+        ]
+      }
+    ]
+  }
+]

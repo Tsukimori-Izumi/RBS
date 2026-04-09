@@ -31,7 +31,8 @@ export class Store {
     }
 
     getDefaultData() {
-        return [{ id: this.generateId(), serialId: `R-${this.assignSerial()}`, text: this.defaultText, children: [] }];
+        const today = new Date().toISOString().split('T')[0];
+        return [{ id: this.generateId(), serialId: `R-${this.assignSerial()}`, text: this.defaultText, date: today, items: [], children: [] }];
     }
 
     generateId() { 
@@ -61,6 +62,8 @@ export class Store {
         const assignMissingAndSanitize = (nodes) => nodes.forEach(n => {
             if (!n.serialId) n.serialId = `R-${this.assignSerial()}`;
             if (!n.status) n.status = '未着手';
+            if (!n.date) n.date = new Date().toISOString().split('T')[0];
+            if (!n.items) n.items = [];
             if (n.children) assignMissingAndSanitize(n.children);
         });
         assignMissingAndSanitize(this.data);
@@ -128,10 +131,13 @@ export class Store {
     }
 
     addNode(parentId, referenceId = null, mode = 'child') {
+        const today = new Date().toISOString().split('T')[0];
         const newNode = {
             id: this.generateId(),
             serialId: `R-${this.assignSerial()}`,
             text: '',
+            date: today,
+            items: [],
             children: [],
             status: '未着手'
         };
@@ -249,5 +255,21 @@ export class Store {
             });
             this.pushHistory();
         }
+    }
+
+    getHierarchicalId(nodeId) {
+        const findPath = (nodes, id, path = []) => {
+            for (let i = 0; i < nodes.length; i++) {
+                const current = [...path, i + 1]; // 1-based
+                if (nodes[i].id === id) return current;
+                if (nodes[i].children) {
+                    const found = findPath(nodes[i].children, id, current);
+                    if (found) return found;
+                }
+            }
+            return null;
+        };
+        const path = findPath(this.data, nodeId);
+        return path ? path.join('-') : '';
     }
 }
